@@ -28,5 +28,29 @@ pipeline {
                 echo 'CloudForge Docker image built successfully!'
             }
         }
+
+        stage('Push Image to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_TOKEN'
+                )]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKERHUB_TOKEN" | docker login \
+                            --username "$DOCKERHUB_USER" \
+                            --password-stdin
+
+                        docker tag cloudforge:ci-${BUILD_NUMBER} \
+                            "$DOCKERHUB_USER/cloudforge:ci-${BUILD_NUMBER}"
+
+                        docker push "$DOCKERHUB_USER/cloudforge:ci-${BUILD_NUMBER}"
+
+                        docker logout
+                    '''
+                }
+            }
+        }
     }
 }
