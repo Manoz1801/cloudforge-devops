@@ -52,5 +52,44 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_TOKEN'
+                )]) {
+                    sh '''
+                        set -eu
+
+                        IMAGE="$DOCKERHUB_USER/cloudforge:ci-${BUILD_NUMBER}"
+
+                        echo "Deploying image: $IMAGE"
+
+                        kubectl set image deployment/cloudforge \
+                            cloudforge="$IMAGE" \
+                            --namespace=default
+
+                        kubectl rollout status deployment/cloudforge \
+                            --namespace=default \
+                            --timeout=120s
+
+                        kubectl get deployment cloudforge \
+                            --namespace=default \
+                            -o wide
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CloudForge pipeline completed successfully: image pushed and Kubernetes deployment verified.'
+        }
+        failure {
+            echo 'CloudForge pipeline failed. Check the Console Output for the failed stage.'
+        }
     }
 }
